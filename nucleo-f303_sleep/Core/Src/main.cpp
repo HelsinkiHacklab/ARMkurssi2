@@ -40,41 +40,18 @@
 #include <errno.h>
 
 #include "menu.h"
+#include "stm32f303xe.h"
 
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
 
 UART_HandleTypeDef huart2;
 
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
 
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-
+// extern "C" kertoo kääntäjälle, että sen rajaamassa lohkossa esitellyt jutut
+// on käännetty C-kääntäjällä. Tässä meillä on C++ -kääntäjä, jonka
+// funktioiden kutsukonventio on erilainen kuin perus-C kielessä.
+// Tällä saadaan kääntäjä kutsumaan C-kielisiä binäärejä C-kielen säännöillä
 extern "C" {
 #include  <sys/unistd.h> // STDOUT_FILENO, STDERR_FILENO
 
@@ -104,21 +81,36 @@ int _write(int fd, char* ptr, int len) {
 
 using namespace CLIMenu;
 
+// Kekomuistista varattu tavallinen jonomuuttuja ( samankokoinen kuin backup-muisti )
+// tämän sisältöä voidaan vertailla backup-muistin tilaan eri virransäästöjuttujen jälkeen
+uint8_t heapBlock[RTC_BKP_NUMBER];
+
 menu mainMenu("Sleep demo menu----------------------");
 menu wakeupMenu("Select wakeup source signal--------");
+menu backupMenu("Select backup memory operation-----");
+
+// Valikot ja valintakäsittelijät
+// Sovelluksen toimintaa ohjataan valikoilla, ja kaikki varsinainen toiminta
+// tapahtuu valintakäsittelijöissä
 
 void sleepHandler( char _selector );
 void stopHandler( char _selector );
 void standbyHandler( char _selector );
+void backupHandler( char _selector );
 void wakeupSourceHandler( char _selector );
+void listBackupMemory( char _selector );
+void setBackupMemory( char _selector );
 
-#define NUM_MAINMENUITEMS 3
+// Päävalikko
+#define NUM_MAINMENUITEMS 4
 menuItem mainMenuItems[NUM_MAINMENUITEMS] =
 {	{'1', "Enter sleep mode", sleepHandler},
 	{'2', "Enter stop mode", stopHandler},
-	{'3', "Enter Standby mode", standbyHandler}
+	{'3', "Enter Standby mode", standbyHandler},
+	{'4', "Access Backup Registers", backupHandler}
 };
 
+// Herätyslähteidsen valintavalikko
 #define NUM_WKUPMENUITEMS 4
 menuItem wkupMenuItems[NUM_WKUPMENUITEMS] =
 {	{'1', "Wakeup with EXTI interrupt by blue button", wakeupSourceHandler},
@@ -127,7 +119,20 @@ menuItem wkupMenuItems[NUM_WKUPMENUITEMS] =
 	{'4', "Disable all wakeup sources. Restart by reset only", wakeupSourceHandler}
 };
 
-// Kielletään keskeytykset kaikista demossa käytetyistä herätelähteistä
+// Backup-muistin käsittelyvalikko
+#define NUM_BKUPMENUITEMS 8
+menuItem bkupMenuItems[NUM_BKUPMENUITEMS] =
+{	{'1', "List backup memory contents", listBackupMemory},
+	{'2', "Clear backup memory to all 0", setBackupMemory},
+	{'3', "Fill backup memory with all 0xff", setBackupMemory},
+	{'4', "Fill backup memory with successive bytes", setBackupMemory},
+	{'5', "List heap memory block contents", listBackupMemory},
+	{'6', "Clear heap memory block to all 0", setBackupMemory},
+	{'7', "Fill heap memory block with all 0xff", setBackupMemory},
+	{'8', "Fill heap memory block with successive bytes", setBackupMemory}
+};
+
+// Tällä funktiolla kielletään keskeytykset kaikista demossa käytetyistä herätelähteistä
 // Kukin heräte aktivoidaan erikseen aina kun siirrytään virransäästötilaan ja herätystapa valitaan.
 void disableAllWakeupSources() {
 	HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
@@ -180,6 +185,52 @@ void standbyHandler( char _selector ) {
 	HAL_PWR_EnterSTANDBYMode();
 }
 
+void backupHandler( char _selector ) {
+	backupMenu.run( false );
+}
+
+// Backup-rekisterin käsittelijät
+uint32_t readBackupRegister(uint32_t _register) {
+	if ( _register >= RTC_BKP_NUMBER ) Error_Handler();
+    return HAL_RTCEx_BKUPRead(&hrtc, _register);
+}
+
+void writeBackupRegister(uint32_t _register, uint32_t _data) {
+	if ( _register >= RTC_BKP_NUMBER ) Error_Handler();
+    HAL_PWR_EnableBkUpAccess();
+    HAL_RTCEx_BKUPWrite(&hrtc, _register, _data);
+    HAL_PWR_DisableBkUpAccess();
+}
+
+// Backup-muistin manipulointifunktiot
+void listBackupMemory( char _selector ) {
+	if ( _selector == '1' ) {
+		printf("\r\nBackup: ");
+		for ( uint8_t i = 0; i < RTC_BKP_NUMBER; i++ ) {
+			printf( "%2x ", readBackupRegister( i ) );
+		}
+	}
+	else {
+		printf("\r\nHeap: ");
+		for ( uint8_t i = 0; i < RTC_BKP_NUMBER; i++ ) {
+			printf( "%2x ", heapBlock[i] );
+		}
+	}
+	printf("\r\n");
+}
+
+void setBackupMemory( char _selector ) {
+	for ( uint8_t i = 0;  i < RTC_BKP_NUMBER; i++ ) {
+		if ( _selector == '2' ) writeBackupRegister( i, 0 );
+		else if ( _selector == '3' ) writeBackupRegister( i, 0xff );
+		else if ( _selector == '4' ) writeBackupRegister( i, i );
+		else if ( _selector == '6' ) heapBlock[i] = 0;
+		else if ( _selector == '7' ) heapBlock[i] = 0xff;
+		else  heapBlock[i] = i;
+	}
+}
+
+// Herätyslähteen valintakäsittelijä
 void wakeupSourceHandler( char _selector ) {
 	switch ( _selector ) {
 	case ( '1' ): {
@@ -206,11 +257,13 @@ void wakeupSourceHandler( char _selector ) {
 }
 
 
+
+
 int main(void) {
 
 	uint8_t command;
 
-	HAL_Init();
+3	HAL_Init();
 
 	SystemClock_Config();
 
@@ -222,6 +275,7 @@ int main(void) {
 	// Halutut kytketään päälle myöhemmin
 	disableAllWakeupSources();
 
+	// Rakennetaan valikot
 	for ( uint8_t i=0; i<NUM_MAINMENUITEMS; i++ ) {
 		mainMenu.addItem( &mainMenuItems[i] );
 	}
@@ -230,9 +284,15 @@ int main(void) {
 		wakeupMenu.addItem( &wkupMenuItems[i] );
 	}
 
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	for ( uint8_t i=0; i<NUM_BKUPMENUITEMS; i++ ) {
+		backupMenu.addItem( &bkupMenuItems[i] );
+	}
 
+	// Valot päälle ja käynnistysilmoitus
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 	printf("\r\nARM Low Power demo\r\n\r\n");
+
+	// Ja sitten tehdään mitä käyttäjä määrää
 	mainMenu.run( true );
 
 }
