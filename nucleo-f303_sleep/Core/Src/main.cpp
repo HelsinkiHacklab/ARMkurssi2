@@ -263,7 +263,7 @@ int main(void) {
 
 	uint8_t command;
 
-3	HAL_Init();
+	HAL_Init();
 
 	SystemClock_Config();
 
