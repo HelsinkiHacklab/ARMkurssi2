@@ -30,6 +30,7 @@
 #include <errno.h>
 
 #include "menu.h"
+#include "hbridge.h"
 #include "stm32f303xe.h"
 
 /* USER CODE END Includes */
@@ -90,22 +91,18 @@ int _write(int fd, char* ptr, int len) {
 } // extern "C"
 
 using namespace CLIMenu;
+using namespace H_bridge;
 
 #define MAXSPEED 1000
 uint16_t setSpeed = 100;
 uint16_t currentSpeed = 0;
 
-#define MAXACC 10
+#define MAXACC 5000
 #define MINACC 1
 uint16_t setAcc = 10;
 uint16_t accIterator = 0;
 
-enum direction {stop, forward, reverse };
-
-bool driveActive = false;
-direction setDirection;
-direction currentDirection;
-
+hbridge pwm(&htim1, TIM_CHANNEL_3, IN1_A_GPIO_Port, IN1_A_Pin, IN1_B_GPIO_Port, IN1_B_Pin );
 menu mainMenu("Sleep demo menu----------------------");
 
 void speedHandler( char _selector );
@@ -113,36 +110,52 @@ void accHandler( char _selector );
 void moveHandler( char _selector );
 
 // Päävalikko
-#define NUM_MAINMENUITEMS 5
+#define NUM_MAINMENUITEMS 7
 menuItem mainMenuItems[] =
 {	{'1', "Set shaft speed ( 0-1000 )", speedHandler},
-	{'2', "Set acceleration ( 1 - 10 s to full speed )", accHandler},
+	{'2', "Set acceleration ( %% per second )", accHandler},
 	{'3', "Move forward", moveHandler},
 	{'4', "Move backward", moveHandler},
-	{'5', "STOP", moveHandler}
+	{'5', "STOP by ramping down", moveHandler},
+	{'6', "STOP by bridge cutoff", moveHandler},
+	{'7', "STOP by bridge short circuit", moveHandler}
 };
 
 void speedHandler( char _selector ) {
+	uint8_t numArgs;
 	uint32_t tmpSpeed;
 	while (1) {
 		printf("Set speed: ");
 		fflush(stdout);
-		scanf("%d", &tmpSpeed );
-		if ( tmpSpeed <= MAXSPEED ) {
-			setSpeed = tmpSpeed;
+		numArgs = scanf("%d", &tmpSpeed );
+		if ( numArgs == 1 ) {
+			if ( tmpSpeed <= MAXSPEED ) {
+				pwm.setSpeedReference( tmpSpeed );
+				return;
+			}
+		}
+		else {
+			printf("That did not compute!\r\n");
 			return;
 		}
 	}
 }
 
 void accHandler( char _selector ) {
+	uint8_t numArgs;
 	uint32_t tmpAcc;
 	while (1) {
 		printf("Set acceleration: ");
 		fflush(stdout);
-		scanf("%d", &tmpAcc );
-		if ( tmpAcc <= MAXACC && tmpAcc >= MINACC ) {
-			setAcc = tmpAcc;
+		numArgs = scanf("%d", &tmpAcc );
+		if ( numArgs == 1 ) {
+			if ( tmpAcc <= MAXACC && tmpAcc >= MINACC ) {
+				pwm.setAccReference( tmpAcc );
+				return;
+			}
+		}
+		else {
+			printf("That did not compute!\r\n");
 			return;
 		}
 	}
@@ -151,61 +164,24 @@ void accHandler( char _selector ) {
 
 void moveHandler( char _selector ) {
 	if ( _selector == '3' ) {
-		HAL_GPIO_WritePin(IN1_A_GPIO_Port, IN1_A_Pin, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(IN1_B_GPIO_Port, IN1_B_Pin, GPIO_PIN_RESET);
-		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
-		driveActive = true;
-		setDirection = forward;
+		pwm.forward();
 	}
 	else if ( _selector == '4' ) {
-		HAL_GPIO_WritePin(IN1_A_GPIO_Port, IN1_A_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(IN1_B_GPIO_Port, IN1_B_Pin, GPIO_PIN_SET);
-		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
-		driveActive = true;
-		setDirection = reverse;
+		pwm.reverse();
+	}
+	else if ( _selector == '5' ) {
+		pwm.stop();
+	}
+	else if ( _selector == '6' ) {
+		pwm.cutoff();
 	}
 	else {
-		setDirection = stop;
+		pwm.brake();
 	}
 }
 
-void setSpeedIterator() {
-	if ( driveActive ) {
-		if ( accIterator > 0 ) accIterator--;
-		else {
-			accIterator = setAcc;
-			if ( setDirection == forward ) {
-				if ( currentDirection == forward ) {
-					if ( setSpeed > currentSpeed ) currentSpeed++;
-					else if ( setSpeed < currentSpeed ) currentSpeed--;
-				}
-				else {
-					if ( currentSpeed > 0 ) currentSpeed--;
-					else currentDirection = forward;
-				}
-			}
-			else if ( setDirection == reverse ) {
-				if ( currentDirection == reverse ) {
-					if ( setSpeed > currentSpeed ) currentSpeed++;
-					else if ( setSpeed < currentSpeed ) currentSpeed--;
-				}
-				else {
-					if ( currentSpeed > 0 ) currentSpeed--;
-					else currentDirection = reverse;
-				}
-			}
-			else {
-				if ( currentSpeed > 0 ) currentSpeed--;
-				else {
-					driveActive = false;
-					HAL_GPIO_WritePin(IN1_A_GPIO_Port, IN1_A_Pin, GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(IN1_B_GPIO_Port, IN1_B_Pin, GPIO_PIN_RESET);
-					HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
-				}
-			}
-			TIM1->CCR3 = currentSpeed;
-		}
-	}
+void runStateMachine() {
+	pwm.stateMachine();
 }
 
 int main(void) {
