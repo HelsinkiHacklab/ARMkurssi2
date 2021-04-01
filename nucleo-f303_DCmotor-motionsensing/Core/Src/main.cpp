@@ -69,11 +69,11 @@ using namespace speedcontrol;
 menu mainMenu("Speed control demo menu---------------");
 
 // Säätäjän toiminnalliset lohkot (luokat)
-Setpoint speedSetpoint;
-AvgActual actualSpeed(&htim2, TIM_CHANNEL_ALL);
+Setpoint speedSetpoint( 1500.0, 500.0, true );
+AvgActual actualSpeed( &htim2, TIM_CHANNEL_ALL );
 PID pidController( 1000, true, 50, 0.1, 0 );
-PWM Hbridge(&htim1, TIM_CHANNEL_3, IN1_A_GPIO_Port, IN1_A_Pin, IN1_B_GPIO_Port, IN1_B_Pin);
-Speedcontrol ctrlLoop( &speedSetpoint, &actualSpeed, &pidController, &Hbridge );
+PWM Hbridge( &htim1, TIM_CHANNEL_3, IN1_A_GPIO_Port, IN1_A_Pin, IN1_B_GPIO_Port, IN1_B_Pin );
+Speedcontrol ctrlLoop( &htim3, &speedSetpoint, &actualSpeed, &pidController, &Hbridge );
 
 void speedHandler( char _selector );
 void accHandler( char _selector );
@@ -105,7 +105,7 @@ void speedHandler( char _selector ) {
 		numArgs = scanf("%f", &sRef );
 		if ( numArgs == 1 ) {
 			if ( ( sRef <= MAXSPEED )  && ( sRef >= MINSPEED )) {
-				speedSetpoint.setTargetRPM( sRef );
+				ctrlLoop.setTargetRPM( sRef );
 				return;
 			}
 		}
@@ -125,7 +125,7 @@ void accHandler( char _selector ) {
 		numArgs = scanf("%d", &tmpAcc );
 		if ( numArgs == 1 ) {
 			if ( tmpAcc <= MAXACC && tmpAcc >= MINACC ) {
-				speedSetpoint.setIncrementRPM( tmpAcc );
+				ctrlLoop.setIncrementRPM( tmpAcc );
 				return;
 			}
 		}
@@ -153,8 +153,8 @@ void actualMvmtHandler( char _selector ) {
 		// tulostetaan skaalatut liikearvot
 		instantVelocity = actualSpeed.getSpeed();
 		avgRPM = actualSpeed.getAvgSpeedRPM();
-		printf("Inst: %3d, RPM: %5.1f Pos: %-12d\r",
-				actualSpeed.getSpeed(),
+		printf("SetRPM: %5.1f, RPM: %5.1f Pos: %-12d\r",
+				speedSetpoint.getTargetRPM(),
 				actualSpeed.getAvgSpeedRPM(),
 				actualSpeed.getPosition() );
 		fflush(stdout);
@@ -233,7 +233,7 @@ int main(void) {
 	// Quadrature encoder counter timer
 	MX_TIM2_Init();
 
-	// Velocity actual update timer
+	// Control loop timer
 	MX_TIM3_Init();
 
 	printf("Simple DC motor control using PWM voltage\r\n");
@@ -242,6 +242,8 @@ int main(void) {
 	for ( uint8_t i=0; i<NUM_MAINMENUITEMS; i++ ) {
 		mainMenu.addItem( &mainMenuItems[i] );
 	}
+
+	ctrlLoop.begin();
 	mainMenu.run( true );
 
 }

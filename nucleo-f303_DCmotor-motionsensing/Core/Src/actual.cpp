@@ -18,6 +18,11 @@ Actual::Actual(TIM_HandleTypeDef *_htim, uint32_t _channel) {
 Actual::~Actual() {
 }
 
+bool Actual::begin() {
+	HAL_StatusTypeDef s;
+	s = HAL_TIM_Encoder_Start( htim, channel );
+	if ( s == HAL_OK ) return true; else return false;
+}
 AvgActual::AvgActual(TIM_HandleTypeDef *_htim, uint32_t _channel) :
 	Actual( _htim, _channel ) {
 	vIndex = 0;

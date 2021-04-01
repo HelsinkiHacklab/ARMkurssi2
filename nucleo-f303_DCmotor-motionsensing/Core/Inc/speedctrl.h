@@ -24,18 +24,23 @@ enum state {state_stop, state_run };
 
 class Speedcontrol {
 public:
-	Speedcontrol(Setpoint *_set, Actual *_act, PID *_pid, PWM *_pwm);
+	Speedcontrol(TIM_HandleTypeDef *_htim, Setpoint *_set, Actual *_act, PID *_pid, PWM *_pwm);
 	virtual ~Speedcontrol();
-	void run() { setState = state_run; };
-	void stop() { setState = state_stop; };
+	bool begin();
+	void setTargetRPM( float _RPM ) { setVelocity = _RPM; set->setTargetRPM( setVelocity );};
+	void setIncrementRPM( float _acc ) {set->setIncrementRPM( _acc ); };
+	void run() { set->setTargetRPM( setVelocity ); setState = state_run; };
+	void stop() {  set->setTargetRPM( 0.0 ); setState = state_stop; };
 	float getActualVelocity() { return actVelocity; };
 	void stateMachine();
 private:
+	TIM_HandleTypeDef *htim;
 	Setpoint *set;
 	Actual *act;
 	PID *pid;
 	PWM *pwm;
 
+	float setVelocity;
 	float refVelocity;
 	float actVelocity;
 	float avgVelocity;

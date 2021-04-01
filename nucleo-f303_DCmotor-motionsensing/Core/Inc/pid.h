@@ -14,6 +14,7 @@ class PID {
 public:
 	PID(float _maxOutput, bool _antiWindup, float _Kp, float _Ki, float _Kd );
 	virtual ~PID();
+	virtual bool begin() { init( true); return true; };
 	void setKp( float _Kp ) { Kp = _Kp; init(false); };
 	void setKi( float _Ki ) { Ki = _Ki; init(false); };
 	void setKd( float _Kd ) { Kd = _Kd; init(false); };

@@ -17,9 +17,15 @@ Setpoint::Setpoint() {
 	current = 0.0;
 }
 
-Setpoint::Setpoint( float _max, float _increment ) : Setpoint() {
-	max = _max;
-	increment = _increment;
+Setpoint::Setpoint( float _max, float _increment, bool _inRPM ) : Setpoint() {
+	if ( _inRPM ) {
+		max = RPM2PulsesPerSample( _max );
+		increment = RPM2PulsesPerSample( _increment );
+	}
+	else {
+		max = _max;
+		increment = _increment;
+	}
 }
 
 Setpoint::~Setpoint() {

@@ -16,6 +16,7 @@ class Actual {
 public:
 	Actual(TIM_HandleTypeDef *_htim, uint32_t _channel);
 	virtual ~Actual();
+	virtual bool begin();
 	float measureActual();
 	float getSpeed() { return currentVelocity; };
 	float getSpeedRPM() { return PulsesPerSample2RPM( currentVelocity ); };

@@ -18,6 +18,7 @@ class PWM {
 public:
 	PWM(TIM_HandleTypeDef *_htim, uint32_t _channel, GPIO_TypeDef* _in_A_port, uint16_t _in_A_pin, GPIO_TypeDef* _in_B_port, uint16_t _in_B_pin);
 	virtual ~PWM();
+	virtual bool begin() { return true; };
 	void forward();
 	void reverse();
 	void stop();

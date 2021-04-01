@@ -10,15 +10,27 @@
 
 namespace speedcontrol {
 
-Speedcontrol::Speedcontrol(Setpoint *_set, Actual *_act, PID *_pid, PWM *_pwm) {
+Speedcontrol::Speedcontrol(TIM_HandleTypeDef *_htim, Setpoint *_set, Actual *_act, PID *_pid, PWM *_pwm) {
+	htim = _htim;
 	set = _set;
 	act = _act;
 	pid = _pid;
 	pwm = _pwm;
+	setVelocity = 200.0;
 }
 
 Speedcontrol::~Speedcontrol() {
 	// TODO Auto-generated destructor stub
+}
+
+bool Speedcontrol::begin() {
+	HAL_StatusTypeDef s;
+	if ( !set->begin() ) return false;
+	if ( !act->begin() ) return false;
+	if ( !pid->begin() ) return false;
+	if ( !pwm->begin() ) return false;
+	s = HAL_TIM_Base_Start_IT( htim );
+	if ( s == HAL_OK ) return true; else return false;
 }
 
 void Speedcontrol::stateMachine() {

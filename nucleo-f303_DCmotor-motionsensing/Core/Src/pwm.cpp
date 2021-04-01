@@ -28,19 +28,25 @@ void PWM::forward() {
 	HAL_GPIO_WritePin(IN1_B_GPIO_Port, IN1_B_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(IN1_A_GPIO_Port, IN1_A_Pin, GPIO_PIN_SET);
 	HAL_TIM_PWM_Start(htim, channel);
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	stat = bridge_forward;
 }
 
 void PWM::reverse() {
 	HAL_GPIO_WritePin(IN1_A_GPIO_Port, IN1_A_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(IN1_B_GPIO_Port, IN1_B_Pin, GPIO_PIN_SET);
 	HAL_TIM_PWM_Start(htim, channel);
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	stat = bridge_reverse;
 }
 
 void PWM::stop() {
 	HAL_TIM_PWM_Stop(htim, channel);
 	HAL_GPIO_WritePin(IN1_B_GPIO_Port, IN1_B_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(IN1_A_GPIO_Port, IN1_A_Pin, GPIO_PIN_RESET);
-}
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+	stat = bridge_idle;
+	}
 
 void PWM::D(float _d) {
 	htim->Instance->CCR3 = _d; // CCR3 pitäisi oikeasti johtaa muutujasta channel

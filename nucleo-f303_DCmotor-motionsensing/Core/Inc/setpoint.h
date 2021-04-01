@@ -15,8 +15,9 @@ namespace setpoint {
 class Setpoint {
 public:
 	Setpoint();
-	Setpoint( float _max, float _increment );
+	Setpoint( float _max, float _increment, bool _inRPM );
 	virtual ~Setpoint();
+	virtual bool begin() { return true; };
 	void reset() { current = 0.0; };
 	void setMaximum( float _max ) { max = _max; };
 	void setTarget( float _target ) { target = _target; };
