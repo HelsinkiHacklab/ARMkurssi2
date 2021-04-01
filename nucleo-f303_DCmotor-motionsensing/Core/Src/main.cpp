@@ -1,3 +1,10 @@
+/* nucleo-f303_DCmotor-motionsensing
+ *
+ * Author: Kremmen
+ *
+ * Demo: pienen DC-moottorin nopeudensäätö
+ *
+ */
 #include "main.h"
 #include "tim.h"
 #include "usart.h"
