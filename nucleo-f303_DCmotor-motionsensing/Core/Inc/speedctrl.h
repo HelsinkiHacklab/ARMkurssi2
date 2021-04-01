@@ -26,8 +26,8 @@ class Speedcontrol {
 public:
 	Speedcontrol(Setpoint *_set, Actual *_act, PID *_pid, PWM *_pwm);
 	virtual ~Speedcontrol();
-	void run();
-	void stop();
+	void run() { setState = state_run; };
+	void stop() { setState = state_stop; };
 	float getActualVelocity() { return actVelocity; };
 	void stateMachine();
 private:

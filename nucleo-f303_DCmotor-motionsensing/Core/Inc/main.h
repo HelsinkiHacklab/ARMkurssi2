@@ -86,9 +86,6 @@ void runStateMachine();
 #define NUMVELOCITYSAMPLES 8 	// Pitää olla kakkosen potenssi!
 #define ENC_PPR 400				// Enkooderin pulssia kierrokselle
 #define SAMPLING_FREQ 100		// diskreettisäädön näytetaajuus Hz
-extern int32_t instantVelocity;
-extern int32_t avgVelocity;
-extern int32_t currentPosition;
 
 /* USER CODE END Private defines */
 

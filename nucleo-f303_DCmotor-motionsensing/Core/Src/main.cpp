@@ -8,7 +8,10 @@
 #include <errno.h>
 
 #include "menu.h"
-#include "hbridge.h"
+#include "setpoint.h"
+#include "pid.h"
+#include "pwm.h"
+#include "speedctrl.h"
 #include "stm32f303xe.h"
 
 UART_HandleTypeDef huart2;
@@ -47,19 +50,30 @@ int _write(int fd, char* ptr, int len) {
 } // extern "C"
 
 using namespace CLIMenu;
-using namespace H_bridge;
+using namespace setpoint;
+using namespace actual;
+using namespace pid;
+using namespace pwm;
+using namespace speedcontrol;
 
 #define MAXSPEED 1500.0	// RPM
 #define MINSPEED -1500.0	// RPM
 
-#define MAXACC 1000	// RPM/s^2
+#define MAXACC 2000	// RPM/s^2
 #define MINACC 10
 
 #define MAXPGAIN 10000.0
 #define MAXIGAIN 100.0
 #define MAXDGAIN 100.0
 
-menu mainMenu("Sleep demo menu----------------------");
+menu mainMenu("Speed control demo menu---------------");
+
+// Säätäjän toiminnalliset lohkot (luokat)
+Setpoint speedSetpoint;
+AvgActual actualSpeed(&htim2, TIM_CHANNEL_ALL);
+PID pidController( 1000, true, 50, 0.1, 0 );
+PWM Hbridge(&htim1, TIM_CHANNEL_3, IN1_A_GPIO_Port, IN1_A_Pin, IN1_B_GPIO_Port, IN1_B_Pin);
+Speedcontrol ctrlLoop( &speedSetpoint, &actualSpeed, &pidController, &Hbridge );
 
 void speedHandler( char _selector );
 void accHandler( char _selector );
@@ -91,7 +105,7 @@ void speedHandler( char _selector ) {
 		numArgs = scanf("%f", &sRef );
 		if ( numArgs == 1 ) {
 			if ( ( sRef <= MAXSPEED )  && ( sRef >= MINSPEED )) {
-				bridge1.setSpeedReference( sRef );
+				speedSetpoint.setTargetRPM( sRef );
 				return;
 			}
 		}
@@ -111,7 +125,7 @@ void accHandler( char _selector ) {
 		numArgs = scanf("%d", &tmpAcc );
 		if ( numArgs == 1 ) {
 			if ( tmpAcc <= MAXACC && tmpAcc >= MINACC ) {
-				bridge1.setAccReference( tmpAcc );
+				speedSetpoint.setIncrementRPM( tmpAcc );
 				return;
 			}
 		}
@@ -125,21 +139,24 @@ void accHandler( char _selector ) {
 
 void moveHandler( char _selector ) {
 	if ( _selector == '3' ) {
-		bridge1.run();
+		ctrlLoop.run();
 	}
-	else bridge1.stop();
+	else ctrlLoop.stop();
 }
 
 void actualMvmtHandler( char _selector ) {
+	float instantVelocity;
 	float avgRPM;
-	float avgRadperSecond;
 	char dummy;
 	while ( 1 ) {
 		// tulostetaan raaka-arvot
 		// tulostetaan skaalatut liikearvot
-		avgRPM = avgVelocity*100.0*60/400.0;
-		avgRadperSecond = avgRPM/60.0*2*3.14159;
-		printf("Inst: %3d, Avg: %3d, RPM: %5.1f Pos: %-12d\r", instantVelocity, avgVelocity, avgRPM, currentPosition );
+		instantVelocity = actualSpeed.getSpeed();
+		avgRPM = actualSpeed.getAvgSpeedRPM();
+		printf("Inst: %3d, RPM: %5.1f Pos: %-12d\r",
+				actualSpeed.getSpeed(),
+				actualSpeed.getAvgSpeedRPM(),
+				actualSpeed.getPosition() );
 		fflush(stdout);
 		if ( USART2->ISR & UART_FLAG_RXNE) {
 			dummy = USART2->RDR;
@@ -159,7 +176,7 @@ void KpHandler( char _selector ) {
 		numArgs = scanf("%f", &tmpGain );
 		if ( numArgs == 1 ) {
 			if ( tmpGain <= MAXPGAIN && tmpGain >= EPSILON ) {
-				bridge1.setPGain( tmpGain );
+				pidController.setKp( tmpGain );
 				return;
 			}
 		}
@@ -175,7 +192,7 @@ void KiHandler( char _selector ) {
 		numArgs = scanf("%f", &tmpGain );
 		if ( numArgs == 1 ) {
 			if ( tmpGain <= MAXIGAIN && tmpGain >= EPSILON ) {
-				bridge1.setIGain( tmpGain );
+				pidController.setKi( tmpGain );
 				return;
 			}
 		}
@@ -191,13 +208,14 @@ void KdHandler( char _selector ) {
 		numArgs = scanf("%f", &tmpGain );
 		if ( numArgs == 1 ) {
 			if ( tmpGain <= MAXDGAIN && tmpGain >= EPSILON ) {
-				bridge1.setDGain( tmpGain );
+				pidController.setKd( tmpGain );
 				return;
 			}
 		}
 	}
 }
 
+void runStateMachine() { ctrlLoop.stateMachine(); }
 
 int main(void) {
 
@@ -220,10 +238,6 @@ int main(void) {
 
 	printf("Simple DC motor control using PWM voltage\r\n");
 
-	bridge1.begin(&htim1, TIM_CHANNEL_3, IN1_A_GPIO_Port, IN1_A_Pin, IN1_B_GPIO_Port, IN1_B_Pin );
-
-	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
-	HAL_TIM_Base_Start_IT(&htim3);
 
 	for ( uint8_t i=0; i<NUM_MAINMENUITEMS; i++ ) {
 		mainMenu.addItem( &mainMenuItems[i] );

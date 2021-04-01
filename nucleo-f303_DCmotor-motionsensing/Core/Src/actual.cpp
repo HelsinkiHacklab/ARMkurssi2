@@ -2,7 +2,7 @@
  * actual.cpp
  *
  *  Created on: 31.3.2021
- *      Author: martti
+ *      Author: Kremmen
  */
 
 #include "actual.h"
@@ -16,32 +16,33 @@ Actual::Actual(TIM_HandleTypeDef *_htim, uint32_t _channel) {
 }
 
 Actual::~Actual() {
-	// TODO Auto-generated destructor stub
 }
 
 AvgActual::AvgActual(TIM_HandleTypeDef *_htim, uint32_t _channel) :
-		Actual::Actual( _htim, _channel ) {
+	Actual( _htim, _channel ) {
 	vIndex = 0;
 	vSum = 0;
-
 }
 
-float Actual::getActual() {
-	float tmp;
-	currentPosition = TIM2->CNT;
-	tmp = currentPosition - previousPosition;
+AvgActual::~AvgActual() {
+}
+
+
+float Actual::measureActual() {
+	currentPosition = htim->Instance->CNT;
+	currentVelocity = currentPosition - previousPosition;
 	previousPosition = currentPosition;
-	return tmp;
+	return currentVelocity;
 }
 
-float AvgActual::getActual() {
+float AvgActual::measureActual() {
+	int32_t tmp;
 	vSum -= velocity[vIndex];
-	velocity[vIndex] = Actual::getActual();
+	velocity[vIndex] = tmp = Actual::measureActual();
 	vSum += velocity[vIndex];
 	vIndex++;
 	vIndex &= ( NUMVELOCITYSAMPLES -1 );
-	return vSum / NUMVELOCITYSAMPLES;
-
+	return tmp;
 }
 
 } // namespace

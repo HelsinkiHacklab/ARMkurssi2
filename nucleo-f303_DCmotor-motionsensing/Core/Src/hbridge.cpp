@@ -181,5 +181,4 @@ hbridge bridge1;
 
 
 
-void runStateMachine() { H_bridge::bridge1.stateMachine(); }
 

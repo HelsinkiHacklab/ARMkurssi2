@@ -31,7 +31,7 @@ void Speedcontrol::stateMachine() {
 				}
 				case state_run: {
 					refVelocity = set->iterate();
-					actVelocity = act->getActual();
+					actVelocity = act->measureActual();
 					if ( refVelocity < EPSILON && refVelocity > -EPSILON ) {
 						pwm->stop();
 						controllerState = state_stop;
@@ -43,7 +43,7 @@ void Speedcontrol::stateMachine() {
 		}
 		case state_run: {
 			// ajotilassa päivitetään position ja nopeuden oloarvot
-			actVelocity = act->getActual();
+			actVelocity = act->measureActual();
 			// suoritetaan ohjauksen tilakone
 			switch ( controllerState ) {
 				case state_stop: {
@@ -76,7 +76,7 @@ void Speedcontrol::stateMachine() {
 	if ( controllerState == state_run )	{// säädetään pwm
 		pwm->D( abs( pid->run( refVelocity, actVelocity ) ) );
 	}
-
 }
+
 
 } //namespace
