@@ -85,8 +85,8 @@ enum timingState { waitingStart, waitingEnd };
 volatile timingState state = waitingStart;
 volatile uint32_t startTimeStamp;
 volatile uint32_t endTimeStamp;
-volatile uint32_t time;
-volatile uint32_t frequency;
+volatile float time;
+volatile float frequency;
 volatile uint32_t timerOverrunCount;
 volatile uint32_t rotationFrequency;
 uint32_t timerPeriod;
@@ -114,21 +114,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
 
 
 int main(void) {
+	float T;
+	float F;
+	HAL_Init();
 
-  HAL_Init();
+	SystemClock_Config();
 
-  SystemClock_Config();
+	sysClockFrequency =  HAL_RCC_GetSysClockFreq();
 
-  sysClockFrequency =  HAL_RCC_GetSysClockFreq();
+	MX_GPIO_Init();
+	MX_USART2_UART_Init();
+	MX_TIM2_Init();
 
-  MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  MX_TIM2_Init();
+	timerPeriod = htim2.Instance->ARR +1;
 
-  timerPeriod = htim2.Instance->ARR +1;
+	printf(" Simple rotation speed measurement \r\n\r\n");
 
-  while (1) {
-
+	while (1) {
+	  EnterCritical();
+	  T = time;
+	  F = frequency;
+	  ExitCritical();
+	  printf("T: %.2f, F: %.2f, RPM: %.2f\r", T, F, F*60 );
+	  fflush(stdout);
+	  HAL_Delay(100);
   }
 
 }
