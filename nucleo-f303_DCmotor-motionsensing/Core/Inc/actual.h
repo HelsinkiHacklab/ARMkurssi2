@@ -17,7 +17,7 @@ public:
 	Actual(TIM_HandleTypeDef *_htim, uint32_t _channel);
 	virtual ~Actual();
 	virtual bool begin();
-	float measureActual();
+	virtual float measureActual();
 	float getSpeed() { return currentVelocity; };
 	float getSpeedRPM() { return PulsesPerSample2RPM( currentVelocity ); };
 	int32_t getPosition() { return currentPosition; };
