@@ -34,20 +34,21 @@ AvgActual::~AvgActual() {
 
 
 float Actual::measureActual() {
-	currentPosition = htim->Instance->CNT;
+	currentPosition = htim->Instance->CNT; // TIM2->CNT
 	currentVelocity = currentPosition - previousPosition;
 	previousPosition = currentPosition;
 	return currentVelocity;
 }
 
 float AvgActual::measureActual() {
-	int32_t tmp;
 	vSum -= velocity[vIndex];
-	velocity[vIndex] = tmp = Actual::measureActual();
+//	velocity[vIndex] = tmp = Actual::measureActual();
+	Actual::measureActual();
+	velocity[vIndex] = currentVelocity;
 	vSum += velocity[vIndex];
 	vIndex++;
 	vIndex &= ( NUMVELOCITYSAMPLES -1 );
-	return tmp;
+	return currentVelocity;
 }
 
 } // namespace
